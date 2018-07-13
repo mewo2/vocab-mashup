@@ -1,5 +1,5 @@
 # coding: utf-8
-from __future__ import division
+
 import nltk
 from collections import Counter, defaultdict
 import math
@@ -14,18 +14,18 @@ w2vbackup = None
 def load_w2v():
     global w2v
     global w2vbackup
-    print "Loading backup w2v"
+    print("Loading backup w2v")
     w2vbackup = word2vec.Word2Vec.load("data/gutenberg.w2v").similarity
-    print "Loading full w2v"
-    vecmat = np.load("data/google.npy")
-    vecmat_dict = json.load(open("data/google.json"))
-    def similarity(w1, w2):
-        v1 = vecmat[vecmat_dict[w1],:] / 256.
-        v2 = vecmat[vecmat_dict[w2],:] / 256.
-        return np.dot(v1, v2)
+    # print("Loading full w2v")
+    # vecmat = np.load("data/google.npy")
+    # vecmat_dict = json.load(open("data/google.json"))
+    # def similarity(w1, w2):
+    #     v1 = vecmat[vecmat_dict[w1],:] / 256.
+    #     v2 = vecmat[vecmat_dict[w2],:] / 256.
+    #     return np.dot(v1, v2)
 
-    print "Loaded"
-    w2v = similarity
+    # print("Loaded")
+    w2v = w2vbackup
 
 stopwords = None
 def load_stopwords():
@@ -43,22 +43,22 @@ def load_stopwords():
         "came", "comes"])
 
 def text(filename):
-    return open(filename).read().decode("utf8")
+    return open(filename).read()
 
 def wc(filename):
     if stopwords is None:
         load_stopwords()
-    print "Computing frequencies for", filename
+    print("Computing frequencies for", filename)
     txt = text(filename)
     words = nltk.wordpunct_tokenize(txt)
     words = [w for w in words if w.isalpha()]
     count = Counter(words)
     bycaps = defaultdict(list)
-    for w, c in count.iteritems():
+    for w, c in count.items():
         bycaps[w.lower()].append((c, w))
     collapsed = {}
     total = 0
-    for w, lst in bycaps.iteritems():
+    for w, lst in bycaps.items():
         canon = max(lst)[1]
         if len(w) < 3 or w in stopwords:
             continue
@@ -71,11 +71,11 @@ def wc(filename):
 def pos_tag(word, tags={}):
     if not tags:
         try:
-            print "Loading POS tags"
+            print("Loading POS tags")
             tags.update(json.load(open("data/pos.json")))
-            print "Loaded"
+            print("Loaded")
         except IOError:
-            print "Counting POS tags"
+            print("Counting POS tags")
             tagcounts = defaultdict(Counter)
             bonuses = defaultdict(int)
             bonuses["VBG"] = 1
@@ -83,10 +83,10 @@ def pos_tag(word, tags={}):
                 if not w.isalpha(): continue
                 t = t.split('-')[0]
                 tagcounts[w.lower()][t] += 1 + bonuses[t]
-            for w in tagcounts.iterkeys():
+            for w in tagcounts.keys():
                 tags[w] = tagcounts[w].most_common(1)[0][0]
             json.dump(tags, open("data/pos.json", "w"))
-            print "Counted"
+            print("Counted")
     try:
         return tags[word.lower()]
     except KeyError:
@@ -112,7 +112,7 @@ def semantic_sim(w1, w2):
 def build_tags(*wcs):
     tags = {}
     for wc in wcs:
-        for w in wc.iterkeys():
+        for w in wc.keys():
             tags[w] = pos_tag(wc[w][1])
     return tags
 
@@ -122,22 +122,22 @@ def match(structure, vocab):
     translate = {}
     sfs = {}
     vfs = {}
-    print "Grouping POS"
+    print("Grouping POS")
     tags = build_tags(swc, vwc)
-    for w in swc.iterkeys():
+    for w in swc.keys():
         sfs[w] = math.log(swc[w][0]/slen)
-    for w in vwc.iterkeys():
+    for w in vwc.keys():
         vfs[w] = math.log(vwc[w][0]/vlen)
-    sbyf = sorted(sfs.keys(), key=lambda x: -sfs[x])
-    vbyf = sorted(vfs.keys(), key=lambda x: -vfs[x])
-    print "Matching vocabulary"
+    sbyf = sorted(list(sfs.keys()), key=lambda x: -sfs[x])
+    vbyf = sorted(list(vfs.keys()), key=lambda x: -vfs[x])
+    print("Matching vocabulary")
     maxsem = 2
     minsem = -2
     good_tags = ["NN", "NP", "NNS", "NPS", "VB", "VBD", "VBZ", "VBG", "VBN", "JJ"]
     penalties = defaultdict(float)
     for i, sw in enumerate(sbyf):
         if i % 1000 == 0:
-            print i
+            print(i)
         if tags[sw] not in good_tags: continue
         if sw in vfs:
             bestscore = minsem + (sfs[sw] - vfs[sw]) ** 2 + penalties[sw]
@@ -159,7 +159,7 @@ def match(structure, vocab):
         if best != sw:
             translate[sw] = best
         if i < 100:
-            print sw, best
+            print(sw, best)
     return translate
 
 
@@ -181,7 +181,7 @@ def translate(filename, trans):
             repword = repword.lower()
         return repword# + "[%s]" % word
     regex = re.compile(r'\w+|[^\w\s]+')
-    print "Translating"
+    print("Translating")
     newtxt = regex.sub(repl, txt)
     return fix_articles(newtxt)
 
@@ -216,14 +216,14 @@ def cli():
 @click.option("-o", "--output", default="mashup.txt")
 def mash(structure, vocab, output):
     with open(output, "w") as f:
-        f.write(transmatch(structure, vocab).encode("utf8"))
+        f.write(transmatch(structure, vocab))
 
 @cli.command()
 @click.argument("filename")
 def count(filename):
     counts, _ = wc(filename)
-    for c, w in sorted(counts.values(), reverse=True)[:50]:
-        print w, c
+    for c, w in sorted(list(counts.values()), reverse=True)[:50]:
+        print(w, c)
 
 @cli.command()
 @click.argument("filename")
@@ -231,7 +231,7 @@ def gender(filename):
     txt = text(filename)
     counts, _ = wc(filename)
     tags = build_tags(counts)
-    nps = [counts[w][1] for w in sorted(tags.keys(), key=lambda x:
+    nps = [counts[w][1] for w in sorted(list(tags.keys()), key=lambda x:
         counts[x][0]) if tags[w] == 'NP' and counts[w][0] > 5]
     pronouns = {"he": "m", "she": "f", "it": "n", "him": "m", "her": "f",
             "his": "m", "its": "n"}
@@ -242,7 +242,7 @@ def gender(filename):
                              txt,
                              flags=re.IGNORECASE | re.DOTALL)
         ncounts = Counter([pronouns[m.lower()] for m in matches])
-        print name, [(p, ncounts[p]/pcounts[p]) for p in "mfn"]
+        print(name, [(p, ncounts[p]/pcounts[p]) for p in "mfn"])
 
 if __name__ == '__main__':
     cli()
